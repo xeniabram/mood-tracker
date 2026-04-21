@@ -7,8 +7,9 @@ import math
 import struct
 import zlib
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -232,11 +233,12 @@ async def notification_scheduler() -> None:
     last_sent: str | None = None
     while True:
         await asyncio.sleep(30)
-        now = datetime.now()
+        conn = get_db()
+        now = datetime.now(ZoneInfo("Europe/Warsaw"))
         hm = now.strftime("%H:%M")
         if hm == last_sent:
+            conn.close()
             continue
-        conn = get_db()
         row = conn.execute(
             "SELECT value FROM settings WHERE key = 'reminder_times'"
         ).fetchone()
@@ -320,7 +322,7 @@ async def list_entries():
 @app.post("/api/entries")
 async def create_entry(entry: EntryCreate):
     conn = get_db()
-    ts = datetime.now().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     cur = conn.execute(
         "INSERT INTO entries (ts, anxiety, disgust, note) VALUES (?, ?, ?, ?)",
         (ts, entry.anxiety, entry.disgust, entry.note),
