@@ -64,7 +64,7 @@ def _load_or_create_vapid() -> tuple[str, str]:
 
 
 VAPID_PRIVATE_KEY_PATH, VAPID_PUBLIC_KEY = _load_or_create_vapid()
-VAPID_CLAIMS = {"sub": "mailto:mood@localhost"}
+VAPID_CLAIMS = {"sub": "mailto:mood@mood-tracker.app"}
 
 # ---------------------------------------------------------------------------
 # Database
