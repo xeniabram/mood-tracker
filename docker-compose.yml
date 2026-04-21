@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - mood_data:/data
+    environment:
+      - DATA_DIR=/data
+
+volumes:
+  mood_data:

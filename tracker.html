@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mood">
+<meta name="theme-color" content="#0f0f11">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<title>Mood Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --anxiety: #ff6b6b;
+    --disgust: #7c6bff;
+    --anxiety-dim: rgba(255,107,107,0.15);
+    --disgust-dim: rgba(124,107,255,0.15);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --surface2: #ebebef;
+      --border: #d8d8e0;
+      --text: #1a1a24;
+      --muted: #8888a0;
+      --anxiety-dim: rgba(255,107,107,0.12);
+      --disgust-dim: rgba(124,107,255,0.12);
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100dvh; overflow-x: hidden; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 100; padding: 0 16px; }
+  .tab { flex: 1; padding: 16px 0 14px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: none; border: none; cursor: pointer; transition: color 0.2s; position: relative; }
+  .tab.active { color: var(--text); }
+  .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px; background: var(--text); }
+  .page { display: none; padding: 24px 16px 48px; }
+  .page.active { display: block; }
+  .time-badge { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 32px; letter-spacing: 0.05em; }
+  .metric-block { margin-bottom: 36px; }
+  .metric-label { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+  .metric-label .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .metric-label .name { font-size: 13px; font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+  .metric-label .val { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; }
+  .emoji-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 0 2px; }
+  .emoji-row span { font-size: 22px; line-height: 1; opacity: 0.3; display: inline-block; transition: opacity 0.15s, transform 0.15s; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 2px; border-radius: 2px; outline: none; cursor: pointer; }
+  .slider-anxiety { background: linear-gradient(to right, var(--anxiety-dim), var(--anxiety)); }
+  .slider-disgust  { background: linear-gradient(to right, var(--disgust-dim), var(--disgust)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--text); cursor: pointer; box-shadow: 0 0 0 2px var(--bg); transition: transform 0.15s; }
+  input[type=range]:active::-webkit-slider-thumb { transform: scale(1.3); }
+  .note-wrap { margin-bottom: 28px; }
+  .note-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+  textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 12px; resize: none; outline: none; transition: border-color 0.2s; height: 72px; }
+  textarea:focus { border-color: var(--muted); }
+  textarea::placeholder { color: var(--muted); }
+  .save-btn { width: 100%; padding: 16px; background: var(--text); color: var(--bg); border: none; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+  .save-btn:active { opacity: 0.7; transform: scale(0.98); }
+
+  /* NOTIFICATIONS */
+  .notif-section { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .section-title { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .notif-status { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.on { background: #4ade80; }
+  .status-dot.denied { background: var(--anxiety); }
+  .notif-times { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .time-chip { display: flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); }
+  .time-chip .remove { color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+  .add-time-row { display: flex; gap: 8px; align-items: center; }
+  input[type=time] { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; padding: 10px 12px; outline: none; flex: 1; }
+  .add-btn { padding: 10px 16px; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .add-btn:active { opacity: 0.7; }
+  .outline-btn { width: 100%; padding: 12px; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+  .outline-btn:active { opacity: 0.7; }
+  .hint-box { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.6; padding: 10px 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+
+  /* CHART */
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .period-btns { display: flex; gap: 4px; }
+  .period-btn { padding: 5px 10px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .period-btn.active { background: var(--surface2); border-color: var(--muted); color: var(--text); }
+  .legend { display: flex; gap: 16px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 2px; border-radius: 1px; }
+  #chartCanvas { width: 100%; border-radius: 8px; display: block; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 13px; font-family: 'DM Mono', monospace; line-height: 1.8; }
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .stat-card .label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .stat-card .value { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; }
+  .stat-card .sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* HISTORY */
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .entry-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; position: relative; }
+  .entry-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.04em; }
+  .entry-bars { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .entry-bar-row { display: flex; align-items: center; gap: 8px; }
+  .entry-bar-label { font-size: 9px; font-family: 'DM Mono', monospace; color: var(--muted); width: 10px; }
+  .entry-bar-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .entry-bar-fill { height: 100%; border-radius: 2px; }
+  .entry-bar-val { font-family: 'DM Mono', monospace; font-size: 11px; width: 20px; text-align: right; }
+  .entry-note { font-size: 12px; color: var(--muted); font-style: italic; margin-top: 6px; line-height: 1.4; }
+  .delete-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; line-height: 1; }
+
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-family: 'DM Mono', monospace; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('log')">Запись</button>
+  <button class="tab" onclick="switchTab('chart')">График</button>
+  <button class="tab" onclick="switchTab('history')">История</button>
+</div>
+
+<!-- LOG PAGE -->
+<div class="page active" id="page-log">
+  <div class="time-badge" id="currentTime"></div>
+
+  <div class="metric-block">
+    <div class="metric-label">
+      <div class="dot" style="background:var(--anxiety)"></div>
+      <span class="name">Тревожность</span>
+      <span class="val" id="anxVal" style="color:var(--anxiety)">5</span>
+    </div>
+    <div class="emoji-row" id="anxEmoji"></div>
+    <input type="range" class="slider-anxiety" id="anxSlider" min="1" max="10" value="5">
+  </div>
+
+  <div class="metric-block">
+    <div class="metric-label">
+      <div class="dot" style="background:var(--disgust)"></div>
+      <span class="name">Отвращение</span>
+      <span class="val" id="disVal" style="color:var(--disgust)">5</span>
+    </div>
+    <div class="emoji-row" id="disEmoji"></div>
+    <input type="range" class="slider-disgust" id="disSlider" min="1" max="10" value="5">
+  </div>
+
+  <div class="note-wrap">
+    <div class="note-label">Заметка (опционально)</div>
+    <textarea id="noteInput" placeholder="что происходит..."></textarea>
+  </div>
+
+  <button class="save-btn" onclick="saveEntry()">Сохранить</button>
+
+  <div class="notif-section">
+    <div class="section-title">Напоминания</div>
+    <div class="notif-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">проверяю...</span>
+    </div>
+    <div id="notifGranted" style="display:none">
+      <div id="timeChips" class="notif-times"></div>
+      <div class="add-time-row">
+        <input type="time" id="timeInput" value="09:00">
+        <button class="add-btn" onclick="addTime()">+ добавить</button>
+      </div>
+    </div>
+    <button class="outline-btn" id="enableBtn" style="display:none" onclick="requestNotifPermission()">Включить уведомления</button>
+    <div class="hint-box" id="iosHint" style="display:none">Уведомления работают только после добавления на домашний экран. Safari &rarr; Поделиться &rarr; На экран Домой</div>
+    <div class="hint-box" id="deniedMsg" style="display:none">Уведомления заблокированы. Разреши в Настройках телефона.</div>
+  </div>
+</div>
+
+<!-- CHART PAGE -->
+<div class="page" id="page-chart">
+  <div class="chart-header">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>тревога</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7c6bff"></div>отвращение</div>
+    </div>
+    <div class="period-btns">
+      <button class="period-btn active" onclick="setPeriod(1,this)">1д</button>
+      <button class="period-btn" onclick="setPeriod(7,this)">7д</button>
+      <button class="period-btn" onclick="setPeriod(30,this)">30д</button>
+    </div>
+  </div>
+  <canvas id="chartCanvas"></canvas>
+  <div id="chartEmpty" class="empty-state" style="display:none">нет данных<br>за выбранный период</div>
+  <div style="margin-top:28px">
+    <div class="section-title">Средние значения</div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="label">Тревожность</div>
+        <div class="value" id="avgAnx" style="color:#ff6b6b">--</div>
+        <div class="sub">среднее</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Отвращение</div>
+        <div class="value" id="avgDis" style="color:#7c6bff">--</div>
+        <div class="sub">среднее</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div id="historyList" class="history-list"></div>
+  <div id="historyEmpty" class="empty-state" style="display:none">записей пока нет</div>
+  <button class="outline-btn" style="margin-top:20px" onclick="exportCSV()">Экспорт CSV</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ANXIETY_EMOJIS = ['\u{1F60C}','\u{1F642}','\u{1F610}','\u{1F61F}','\u{1F630}','\u{1F628}','\u{1F631}','\u{1F480}','\u{1FAE0}','\u{1F92F}'];
+const DISGUST_EMOJIS = ['\u{1F60C}','\u{1F636}','\u{1F615}','\u{1F922}','\u{1F616}','\u{1F92E}','\u{1F635}','\u{1FAE3}','\u{1F480}','\u2620\uFE0F'];
+
+let entries = [];
+let reminderTimes = [];
+let swRegistration = null;
+let currentPeriod = 1;
+
+// ---- HELPERS ----
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function apiFetch(url, opts = {}) {
+  const init = { headers: {'Content-Type': 'application/json'}, ...opts };
+  if (opts.body && typeof opts.body !== 'string') init.body = JSON.stringify(opts.body);
+  const res = await fetch(url, init);
+  if (!res.ok) throw new Error('API ' + res.status);
+  return res.json();
+}
+
+// ---- DATA LOADING ----
+async function loadEntries() {
+  try { entries = await apiFetch('/api/entries'); } catch { entries = []; }
+}
+async function loadReminders() {
+  try {
+    const d = await apiFetch('/api/settings/reminders');
+    reminderTimes = d.times || [];
+  } catch { reminderTimes = []; }
+}
+
+// ---- TIME DISPLAY ----
+function updateTime() {
+  document.getElementById('currentTime').textContent =
+    new Date().toLocaleString('ru-RU', {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+}
+
+// ---- SLIDERS ----
+function buildEmojiRow(id, emojis, val) {
+  document.getElementById(id).innerHTML = emojis.map((e,i) =>
+    `<span style="opacity:${i+1==val?1:0.25};transform:${i+1==val?'scale(1.35)':'scale(1)'};">${e}</span>`
+  ).join('');
+}
+function initSliders() {
+  buildEmojiRow('anxEmoji', ANXIETY_EMOJIS, 5);
+  buildEmojiRow('disEmoji', DISGUST_EMOJIS, 5);
+  document.getElementById('anxSlider').addEventListener('input', e => {
+    const v = +e.target.value;
+    document.getElementById('anxVal').textContent = v;
+    buildEmojiRow('anxEmoji', ANXIETY_EMOJIS, v);
+  });
+  document.getElementById('disSlider').addEventListener('input', e => {
+    const v = +e.target.value;
+    document.getElementById('disVal').textContent = v;
+    buildEmojiRow('disEmoji', DISGUST_EMOJIS, v);
+  });
+}
+
+// ---- SAVE ----
+async function saveEntry() {
+  const anxiety = +document.getElementById('anxSlider').value;
+  const disgust = +document.getElementById('disSlider').value;
+  const note = document.getElementById('noteInput').value.trim();
+  try {
+    const r = await apiFetch('/api/entries', {
+      method: 'POST',
+      body: JSON.stringify({ anxiety, disgust, note }),
+    });
+    entries.unshift({ id: r.id, ts: r.ts, anxiety, disgust, note });
+    document.getElementById('noteInput').value = '';
+    showToast('Сохранено \u2713');
+  } catch { showToast('Ошибка сохранения'); }
+}
+
+// ---- TOAST ----
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ---- TABS ----
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) =>
+    t.classList.toggle('active', ['log','chart','history'][i] === name));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (name === 'chart') renderChart();
+  if (name === 'history') renderHistory();
+}
+
+// ---- SERVICE WORKER & WEB PUSH ----
+async function setupServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    return reg;
+  } catch (e) { console.warn('SW error', e); return null; }
+}
+
+async function subscribeToPush(reg) {
+  if (!reg || !('PushManager' in window)) return;
+  try {
+    const { publicKey } = await apiFetch('/api/vapid-key');
+    // base64url → Uint8Array
+    const pad = '='.repeat((4 - publicKey.length % 4) % 4);
+    const b64 = (publicKey + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(b64);
+    const key = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    }
+    const j = sub.toJSON();
+    await apiFetch('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys }),
+    });
+  } catch (e) { console.warn('Push sub error', e); }
+}
+
+// ---- NOTIFICATIONS UI ----
+async function initNotifications() {
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+
+  if (!('Notification' in window) || !('PushManager' in window)) {
+    if (isIOS && !isStandalone) {
+      document.getElementById('iosHint').style.display = 'block';
+      statusText.textContent = 'нужен домашний экран';
+    } else {
+      statusText.textContent = 'не поддерживается';
+    }
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    swRegistration = await setupServiceWorker();
+    if (swRegistration) await subscribeToPush(swRegistration);
+    dot.classList.add('on');
+    statusText.textContent = 'включены';
+    document.getElementById('notifGranted').style.display = 'block';
+    renderTimeChips();
+  } else if (Notification.permission === 'denied') {
+    dot.classList.add('denied');
+    statusText.textContent = 'заблокированы';
+    document.getElementById('deniedMsg').style.display = 'block';
+  } else {
+    statusText.textContent = 'не включены';
+    if (isIOS && !isStandalone) {
+      document.getElementById('iosHint').style.display = 'block';
+    } else {
+      document.getElementById('enableBtn').style.display = 'block';
+    }
+  }
+}
+
+async function requestNotifPermission() {
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    swRegistration = await setupServiceWorker();
+    if (swRegistration) await subscribeToPush(swRegistration);
+    document.getElementById('statusDot').classList.add('on');
+    document.getElementById('statusText').textContent = 'включены';
+    document.getElementById('enableBtn').style.display = 'none';
+    document.getElementById('notifGranted').style.display = 'block';
+    renderTimeChips();
+    showToast('Уведомления включены \u2713');
+  } else {
+    document.getElementById('statusDot').classList.add('denied');
+    document.getElementById('statusText').textContent = 'заблокированы';
+    document.getElementById('enableBtn').style.display = 'none';
+    document.getElementById('deniedMsg').style.display = 'block';
+  }
+}
+
+function renderTimeChips() {
+  document.getElementById('timeChips').innerHTML = reminderTimes.map(t =>
+    `<div class="time-chip">${escapeHtml(t)}<span class="remove" onclick="removeTime('${escapeHtml(t)}')">\u00d7</span></div>`
+  ).join('');
+}
+
+async function addTime() {
+  const val = document.getElementById('timeInput').value;
+  if (!val || reminderTimes.includes(val)) return;
+  reminderTimes.push(val);
+  reminderTimes.sort();
+  try {
+    await apiFetch('/api/settings/reminders', {
+      method: 'PUT', body: JSON.stringify({ times: reminderTimes }),
+    });
+    renderTimeChips();
+    showToast('Добавлено ' + val);
+  } catch { showToast('Ошибка'); }
+}
+
+async function removeTime(t) {
+  reminderTimes = reminderTimes.filter(x => x !== t);
+  try {
+    await apiFetch('/api/settings/reminders', {
+      method: 'PUT', body: JSON.stringify({ times: reminderTimes }),
+    });
+  } catch {}
+  renderTimeChips();
+}
+
+// ---- CHART ----
+function setPeriod(days, btn) {
+  currentPeriod = days;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
+
+function renderChart() {
+  const canvas = document.getElementById('chartCanvas');
+  const ctx = canvas.getContext('2d');
+  const empty = document.getElementById('chartEmpty');
+  const now = Date.now();
+  const cutoff = now - currentPeriod * 86400000;
+  const all = entries.filter(e => new Date(e.ts).getTime() >= cutoff);
+
+  if (!all.length) {
+    canvas.style.display = 'none'; empty.style.display = 'block';
+    document.getElementById('avgAnx').textContent = '--';
+    document.getElementById('avgDis').textContent = '--';
+    return;
+  }
+  canvas.style.display = 'block'; empty.style.display = 'none';
+
+  document.getElementById('avgAnx').textContent =
+    (all.reduce((s,e) => s+e.anxiety, 0)/all.length).toFixed(1);
+  document.getElementById('avgDis').textContent =
+    (all.reduce((s,e) => s+e.disgust, 0)/all.length).toFixed(1);
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.offsetWidth;
+  const H = Math.min(220, Math.round(W*0.55));
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const pad = {top:16, right:16, bottom:36, left:28};
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  ctx.clearRect(0, 0, W, H);
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? '#2e2e38' : '#d8d8e0';
+  const labelColor = isDark ? '#6b6b80' : '#8888a0';
+
+  ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + ch - (i/5)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cw, y); ctx.stroke();
+  }
+  ctx.fillStyle = labelColor; ctx.font = '9px DM Mono, monospace'; ctx.textAlign = 'right';
+  [0,5,10].forEach((v,i) => ctx.fillText(v, pad.left-5, pad.top + ch - (i/2)*ch + 3));
+  ctx.textAlign = 'center';
+  if (currentPeriod === 1) {
+    for (let h = 0; h <= 4; h++) {
+      const d = new Date(cutoff + h*(86400000/4));
+      ctx.fillText(d.getHours()+':00', pad.left + (h/4)*cw, H-8);
+    }
+  } else {
+    const step = Math.max(1, Math.floor(currentPeriod/5));
+    for (let d = 0; d < currentPeriod; d += step) {
+      const date = new Date(cutoff + d*86400000);
+      ctx.fillText(date.getDate()+'.'+String(date.getMonth()+1).padStart(2,'0'),
+        pad.left + (d/currentPeriod)*cw, H-8);
+    }
+  }
+
+  const sorted = [...all].sort((a,b) => new Date(a.ts) - new Date(b.ts));
+
+  function drawLine(data, key, color) {
+    if (!data.length) return;
+    const pts = data.map(e => ({
+      x: pad.left + ((new Date(e.ts).getTime()-cutoff)/(currentPeriod*86400000))*cw,
+      y: pad.top + ch - ((e[key]-1)/9)*ch
+    }));
+    ctx.save();
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      const mx = (pts[i-1].x + pts[i].x)/2;
+      ctx.bezierCurveTo(mx, pts[i-1].y, mx, pts[i].y, pts[i].x, pts[i].y);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.restore();
+    pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill(); });
+  }
+
+  drawLine(sorted, 'disgust', '#7c6bff');
+  drawLine(sorted, 'anxiety', '#ff6b6b');
+}
+
+// ---- HISTORY ----
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+  if (!entries.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = entries.map(e => {
+    const d = new Date(e.ts);
+    const ds = d.toLocaleString('ru-RU', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+    return `<div class="entry-card">
+      <button class="delete-btn" onclick="deleteEntry(${e.id})">\u00d7</button>
+      <div class="entry-time">${escapeHtml(ds)}</div>
+      <div class="entry-bars">
+        <div class="entry-bar-row">
+          <div class="entry-bar-label" style="color:#ff6b6b">\u0410</div>
+          <div class="entry-bar-track"><div class="entry-bar-fill" style="width:${e.anxiety*10}%;background:#ff6b6b"></div></div>
+          <div class="entry-bar-val" style="color:#ff6b6b">${e.anxiety}</div>
+        </div>
+        <div class="entry-bar-row">
+          <div class="entry-bar-label" style="color:#7c6bff">\u041e</div>
+          <div class="entry-bar-track"><div class="entry-bar-fill" style="width:${e.disgust*10}%;background:#7c6bff"></div></div>
+          <div class="entry-bar-val" style="color:#7c6bff">${e.disgust}</div>
+        </div>
+      </div>
+      ${e.note ? `<div class="entry-note">${escapeHtml(e.note)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function deleteEntry(id) {
+  try {
+    await apiFetch('/api/entries/' + id, { method: 'DELETE' });
+    entries = entries.filter(e => e.id !== id);
+    renderHistory();
+    showToast('Удалено');
+  } catch { showToast('Ошибка'); }
+}
+
+function exportCSV() {
+  if (!entries.length) { showToast('Нет данных'); return; }
+  const rows = ['timestamp,anxiety,disgust,note',
+    ...entries.map(e => `"${e.ts}",${e.anxiety},${e.disgust},"${(e.note||'').replace(/"/g,'""')}"`)];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
+  a.download = 'mood_export.csv';
+  a.click();
+  showToast('Экспортировано');
+}
+
+// ---- INIT ----
+async function init() {
+  updateTime();
+  setInterval(updateTime, 30000);
+  initSliders();
+  await Promise.all([loadEntries(), loadReminders()]);
+  initNotifications();
+  window.addEventListener('resize', () => {
+    if (document.getElementById('page-chart').classList.contains('active')) renderChart();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (document.getElementById('page-chart').classList.contains('active')) renderChart();
+  });
+}
+init();
+</script>
+</body>
+</html>
