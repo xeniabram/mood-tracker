@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 import sqlite3
 import math
@@ -18,6 +19,9 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pywebpush import WebPushException, webpush
+
+log = logging.getLogger("mood_tracker")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # ---------------------------------------------------------------------------
 # Config
@@ -198,6 +202,7 @@ def send_push_to_all(message: str) -> None:
     subs = conn.execute(
         "SELECT endpoint, p256dh, auth FROM push_subscriptions"
     ).fetchall()
+    log.info("Sending push to %d subscription(s)", len(subs))
     dead: list[str] = []
     for sub in subs:
         try:
@@ -212,16 +217,19 @@ def send_push_to_all(message: str) -> None:
                 vapid_private_key=VAPID_PRIVATE_KEY_PATH,
                 vapid_claims=VAPID_CLAIMS,
             )
+            log.info("Push sent OK to %.60s…", sub["endpoint"])
         except WebPushException as exc:
+            log.error("WebPushException for %.60s…: %s", sub["endpoint"], exc)
             if exc.response is not None and exc.response.status_code in (404, 410):
                 dead.append(sub["endpoint"])
         except Exception:
-            pass
+            log.exception("Unexpected error sending push to %.60s…", sub["endpoint"])
     for ep in dead:
         conn.execute(
             "DELETE FROM push_subscriptions WHERE endpoint = ?", (ep,)
         )
     if dead:
+        log.info("Removed %d dead subscription(s)", len(dead))
         conn.commit()
     conn.close()
 
@@ -230,6 +238,7 @@ def send_push_to_all(message: str) -> None:
 # ---------------------------------------------------------------------------
 
 async def notification_scheduler() -> None:
+    log.info("Notification scheduler started")
     last_sent: str | None = None
     while True:
         await asyncio.sleep(30)
@@ -246,6 +255,7 @@ async def notification_scheduler() -> None:
         if row:
             times = json.loads(row["value"])
             if hm in times:
+                log.info("Reminder triggered for %s (configured: %s)", hm, times)
                 last_sent = hm
                 send_push_to_all("Время записать настроение")
 
